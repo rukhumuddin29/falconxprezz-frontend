@@ -13,10 +13,16 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
     roles: (state) => state.user?.roles || [],
+    permissions: (state) => state.user?.permissions || [],
     hasRole: (state) => (roles) => {
       if (!roles || roles.length === 0) return true
       const allowed = Array.isArray(roles) ? roles : [roles]
       return state.user?.roles?.some((role) => allowed.includes(role))
+    },
+    hasPermission: (state) => (perms) => {
+      if (!perms || perms.length === 0) return true
+      const allowed = Array.isArray(perms) ? perms : [perms]
+      return state.user?.permissions?.some((perm) => allowed.includes(perm))
     },
     defaultDashboardRoute(state) {
       const priority = ['super_admin', 'admin', 'vendor', 'agent', 'customer']

@@ -7,6 +7,8 @@ import ServedCountriesView from '@/views/locations/ServedCountriesView.vue'
 import ServiceProvidersView from '@/views/providers/ServiceProvidersView.vue'
 import ZonesView from '@/views/zones/ZonesView.vue'
 import UsersView from '@/views/users/UsersView.vue'
+import AllUsersView from '@/views/users/AllUsersView.vue'
+import RegisteredCompaniesView from '@/views/companies/RegisteredCompaniesView.vue'
 import RolesPermissionsView from '@/views/roles/RolesPermissionsView.vue'
 import ShipmentSettingsView from '@/views/shipment/ShipmentSettingsView.vue'
 import AppSettingsView from '@/views/settings/AppSettingsView.vue'
@@ -99,6 +101,18 @@ const router = createRouter({
       meta: { requiresAuth: true, roles: ['admin', 'super_admin'] },
     },
     {
+      path: '/users/all',
+      name: 'users.all',
+      component: AllUsersView,
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'] },
+    },
+    {
+      path: '/companies',
+      name: 'companies.list',
+      component: RegisteredCompaniesView,
+      meta: { requiresAuth: true, roles: ['super_admin'] },
+    },
+    {
       path: '/rate-margins',
       name: 'rate.margins',
       component: RateMarginView,
@@ -114,19 +128,19 @@ const router = createRouter({
       path: '/roles',
       name: 'roles.permissions',
       component: RolesPermissionsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_roles', 'manage_permissions'] },
     },
     {
       path: '/shipment-settings',
       name: 'shipment.settings',
       component: ShipmentSettingsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_shipment_settings'] },
     },
     {
       path: '/app-settings',
       name: 'app.settings',
       component: AppSettingsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_app_settings'] },
     },
     {
       path: '/booking',
@@ -154,12 +168,16 @@ router.beforeEach(async (to, from, next) => {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
-  if (to.meta?.roles?.length) {
+  if (to.meta?.roles?.length || to.meta?.permissions?.length) {
     if (!auth.user) {
       await auth.fetchUser().catch(() => null)
     }
 
-    if (!auth.hasRole(to.meta.roles)) {
+    if (to.meta?.roles?.length && !auth.hasRole(to.meta.roles)) {
+      return next({ name: 'unauthorized' })
+    }
+
+    if (to.meta?.permissions?.length && !auth.hasPermission(to.meta.permissions)) {
       return next({ name: 'unauthorized' })
     }
   }

@@ -1,31 +1,29 @@
 <script setup>
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import api from '@/api/http'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const navCollapsed = ref(false)
 const isMobile = ref(false)
 const appSettings = ref(null)
+const showUsersMenu = ref(false)
 
 const menuItems = [
-  { label: 'Dashboard', icon: 'pi pi-compass', route: { name: 'super.dashboard' }, roles: ['super_admin', 'admin', 'vendor', 'agent', 'customer'] },
   { label: 'Booking', icon: 'pi pi-calendar-plus', route: { name: 'booking' }, roles: ['super_admin', 'admin', 'agent'] },
-  { label: 'Create User', icon: 'pi pi-users', route: { name: 'users' }, roles: ['super_admin', 'admin'] },
-  { label: 'Rate Cards', icon: 'pi pi-tags', route: { name: 'rate.cards' }, roles: ['super_admin', 'admin'] },
-  { label: 'Rate Margin', icon: 'pi pi-percentage', route: { name: 'rate.margins' }, roles: ['super_admin', 'admin'] },
-  { label: 'Service Providers', icon: 'pi pi-truck', route: { name: 'service.providers' }, roles: ['super_admin', 'admin'] },
-  { label: 'Parcels', icon: 'pi pi-box', route: { name: 'super.dashboard' }, roles: ['super_admin', 'admin', 'vendor', 'agent'] },
-  { label: 'Pickups', icon: 'pi pi-send', route: { name: 'super.dashboard' }, roles: ['super_admin', 'admin', 'vendor', 'agent'] },
-  { label: 'Roles & Permissions', icon: 'pi pi-key', route: { name: 'roles.permissions' }, roles: ['super_admin', 'admin'] },
+  { label: 'Rate Cards', icon: 'pi pi-tags', route: { name: 'rate.cards' }, roles: ['super_admin', 'admin'], permissions: ['manage-rate-card'] },
+  { label: 'Rate Margin', icon: 'pi pi-percentage', route: { name: 'rate.margins' }, roles: ['super_admin', 'admin'], permissions: ['manage-rate-margin'] },
+  { label: 'Service Providers', icon: 'pi pi-truck', route: { name: 'service.providers' }, roles: ['super_admin', 'admin'], permissions: ['manage-service-providers'] },
   { label: 'Reports', icon: 'pi pi-chart-line', route: { name: 'super.dashboard' }, roles: ['super_admin', 'admin', 'vendor'] },
-  { label: 'Served Countries', icon: 'pi pi-globe', route: { name: 'locations.served' }, roles: ['super_admin', 'admin'] },
-  { label: 'Indian Locations', icon: 'pi pi-map', route: { name: 'locations.india' }, roles: ['super_admin', 'admin'] },
-  { label: 'Zones', icon: 'pi pi-flag', route: { name: 'zones' }, roles: ['super_admin', 'admin'] },
-  { label: 'Shipment Settings', icon: 'pi pi-cog', route: { name: 'shipment.settings' }, roles: ['super_admin', 'admin'] },
-  { label: 'App Settings', icon: 'pi pi-sliders-h', route: { name: 'app.settings' }, roles: ['super_admin', 'admin'] },
+  { label: 'Served Countries', icon: 'pi pi-globe', route: { name: 'locations.served' }, roles: ['super_admin', 'admin'], permissions: ['manage-served-countries'] },
+  { label: 'Indian Locations', icon: 'pi pi-map', route: { name: 'locations.india' }, roles: ['super_admin', 'admin'], permissions: ['manage-indian-locations'] },
+  { label: 'Zones', icon: 'pi pi-flag', route: { name: 'zones' }, roles: ['super_admin', 'admin'], permissions: ['manage-zones'] },
+  { label: 'Shipment Settings', icon: 'pi pi-cog', route: { name: 'shipment.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage_shipment_settings'] },
+  { label: 'Roles & Permissions', icon: 'pi pi-key', route: { name: 'roles.permissions' }, roles: ['super_admin', 'admin'], permissions: ['manage_roles', 'manage_permissions'] },
+  { label: 'App Settings', icon: 'pi pi-sliders-h', route: { name: 'app.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage-app-settings'] },
 ]
 
 const showShell = computed(() => auth.isAuthenticated)
@@ -37,7 +35,21 @@ const handleLogout = async () => {
 
 const visibleMenu = computed(() => {
   if (!auth.user?.roles) return []
-  return menuItems.filter((item) => item.roles.some((role) => auth.user.roles.includes(role)))
+  return menuItems.filter((item) => {
+    const roleOk = item.roles.some((role) => auth.user.roles.includes(role))
+    const permOk = !item.permissions || auth.hasPermission(item.permissions)
+    return roleOk && permOk
+  })
+})
+
+const isUsersGroupActive = computed(() => {
+  return ['users', 'users.all', 'companies.list'].includes(route.name)
+})
+
+watchEffect(() => {
+  if (isUsersGroupActive.value) {
+    showUsersMenu.value = true
+  }
 })
 
 const updateIsMobile = () => {
@@ -142,6 +154,48 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
         <nav class="nav-list">
           <p class="nav-heading">Navigation</p>
           <button
+            class="nav-item"
+            v-if="visibleMenu.find((item) => item.route.name === 'super.dashboard')"
+            @click="router.push({ name: 'super.dashboard' })"
+            title="Dashboard"
+          >
+            <i class="pi pi-compass"></i>
+            <span>Dashboard</span>
+          </button>
+          <div v-if="auth.hasRole(['admin', 'super_admin']) && auth.hasPermission(['manage_users', 'manage_roles', 'manage_permissions'])" class="nav-group">
+            <div
+              class="nav-item nav-parent"
+              :class="isUsersGroupActive ? 'is-active' : ''"
+              @click="showUsersMenu = !showUsersMenu"
+              title="App Users"
+            >
+              <div class="nav-parent-label">
+                <i class="pi pi-users"></i>
+                <span>App Users</span>
+              </div>
+              <i :class="['pi', showUsersMenu ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+            </div>
+            <div v-if="showUsersMenu && !navCollapsed" class="nav-submenu">
+              <button class="nav-subitem" @click="router.push({ name: 'users' })" title="Create Users">
+                <i class="pi pi-plus"></i>
+                <span>Create Users</span>
+              </button>
+              <button class="nav-subitem" @click="router.push({ name: 'users.all' })" title="All Users">
+                <i class="pi pi-list"></i>
+                <span>All Users</span>
+              </button>
+              <button
+                v-if="auth.hasRole(['super_admin'])"
+                class="nav-subitem"
+                @click="router.push({ name: 'companies.list' })"
+                title="Registered Companies"
+              >
+                <i class="pi pi-building"></i>
+                <span>Registered Companies</span>
+              </button>
+            </div>
+          </div>
+          <button
             v-for="item in visibleMenu"
             :key="item.label"
             class="nav-item"
@@ -225,17 +279,25 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
   color: #91a4d1;
 }
 
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  font-family: inherit;
+  font-size: 14px;
 }
 
 .nav-item:hover {
@@ -245,7 +307,49 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
 }
 
 .nav-item .pi {
-  font-size: 1rem;
+  font-size: 14px;
+}
+
+.nav-parent {
+  justify-content: space-between;
+}
+
+.nav-parent-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-submenu {
+  padding: 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 0.5rem;
+}
+
+.nav-subitem {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #e8edff;
+  padding: 0.55rem 0 0.8rem 0.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.nav-subitem:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+.nav-subitem i {
+  font-size: 0.9rem;
 }
 
 .main-area {

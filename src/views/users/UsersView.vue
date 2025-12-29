@@ -3,8 +3,9 @@
     <div class="hero">
       <div class="hero-content">
         <div>
-          <p class="eyebrow">Users</p>
-          <h2 class="hero-title">New Agent Login</h2>
+          <p class="eyebrow">{{ isAdminMode ? 'Agents' : 'Users' }}</p>
+          <h2 class="hero-title">{{ isAdminMode ? 'New Agent Login' : 'New User Login' }}</h2>
+          <p v-if="!isAdminMode" class="small-text">Admin(Franchise), Agent, Vendor or any other</p>
         </div>
       </div>
     </div>
@@ -13,18 +14,18 @@
       <template #content>
         <div class="step-header">
           <div>
-            <p class="eyebrow dark-text">User onboarding</p>
+            <p class="eyebrow dark-text">{{ isAdminMode ? 'Agent onboarding' : 'User onboarding' }}</p>
             <h3 class="title dark-text">Basic User Information</h3>
           </div>
           <div class="progress-wrap">
-            <span class="muted small">{{ step }} of 2 Completed</span>
+            <span class="muted small">{{ step }} of {{ totalSteps }} Completed</span>
             <div class="progress-track">
-              <div class="progress-bar" :style="{ width: `${(step / 2) * 100}%` }"></div>
+              <div class="progress-bar" :style="{ width: `${(step / totalSteps) * 100}%` }"></div>
             </div>
           </div>
         </div>
 
-        <div class="steps-line">
+        <div v-if="!isAdminMode" class="steps-line">
           <div :class="['step-pill', step === 1 ? 'active' : '']">
             <span class="circle">{{ step > 1 ? "\u2713" : "1" }}</span>
             <span>User Details</span>
@@ -155,13 +156,27 @@
           </div>
 
           <div class="modal-actions">
-            <button class="pill-btn next" @click="goStep(2)">Next</button>
+            <template v-if="isAdminMode">
+              <button class="pill-btn" :disabled="saving" @click="submit">
+                {{ saving ? 'Saving...' : 'Create Agent' }}
+              </button>
+            </template>
+            <template v-else>
+              <button class="pill-btn next" @click="goStep(2)">Next</button>
+            </template>
           </div>
         </div>
 
-        <div v-else class="form-grid">
+        <div v-else-if="step === 2" class="form-grid">
           <h3 class="title">Company Details</h3>
           <div class="grid-2">
+            <div>
+              <label class="field-label">User Access Level</label>
+              <select v-model="form.user.role_id" class="modal-input">
+                <option value="">Select role</option>
+                <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
+              </select>
+            </div>
             <div>
               <label class="field-label">Company Name</label>
               <div class="select-search">
@@ -184,13 +199,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-            <div>
-              <label class="field-label">User Access Level</label>
-              <select v-model="form.user.role_id" class="modal-input">
-                <option value="">Select role</option>
-                <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
-              </select>
             </div>
           </div>
 
@@ -280,15 +288,21 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue'
 import api from '@/api/http'
 import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()
+const auth = useAuthStore()
 const step = ref(1)
 const saving = ref(false)
 const states = ref([])
 const cities = ref([])
+const AGENT_ROLE_ID = 4
+
+const isAdminMode = computed(() => auth.hasRole(['admin']) && !auth.hasRole(['super_admin']))
+const totalSteps = computed(() => (isAdminMode.value ? 1 : 2))
 
 const filteredStates = ref([])
 const filteredCities = ref([])
@@ -339,6 +353,43 @@ const form = ref({
     gstin: '',
   },
 })
+
+const buildAdminCompanyDefaults = () => {
+  const info = auth.user?.information || {}
+  const company = info.company || {}
+  return {
+    companyId: info.company_id || '',
+    companyFields: {
+      company_name: company.company_name || '',
+      phone_number: company.phone_number || '',
+      address: company.address || '',
+      state_id: company.state_id || '',
+      city_id: company.city_id || '',
+      zipcode: company.zipcode || '',
+      gstin: company.gstin || '',
+    },
+  }
+}
+
+const applyAdminDefaults = () => {
+  if (!isAdminMode.value) return
+  const defaults = buildAdminCompanyDefaults()
+  form.value.user.role_id = AGENT_ROLE_ID
+  form.value.info.company_id = defaults.companyId
+  form.value.company = {
+    ...form.value.company,
+    ...defaults.companyFields,
+  }
+
+  if (defaults.companyFields.state_id) {
+    companyStateSearch.value =
+      states.value.find((s) => s.id === defaults.companyFields.state_id)?.title || ''
+  }
+  if (defaults.companyFields.city_id) {
+    companyCitySearch.value =
+      cities.value.find((c) => c.id === defaults.companyFields.city_id)?.title || ''
+  }
+}
 
 const goStep = (n) => {
   if (n === 2) {
@@ -405,9 +456,17 @@ watch(
   () => form.value.company.state_id,
   () => {
     filterCompanyCities()
-    form.value.company.city_id = ''
+    if (!isAdminMode.value || !form.value.company.city_id) {
+      form.value.company.city_id = ''
+    }
   }
 )
+
+watchEffect(() => {
+  if (isAdminMode.value && auth.user) {
+    applyAdminDefaults()
+  }
+})
 
 const selectState = (state) => {
   form.value.info.state_id = state.id
@@ -500,6 +559,7 @@ const fetchLists = async () => {
     roles.value = rolesRes.value.data.data || []
   }
   form.value.user.username = nextCode.status === 'fulfilled' ? nextCode.value.data.code || '' : ''
+  applyAdminDefaults()
 }
 
 const submit = async () => {
@@ -515,10 +575,19 @@ const submit = async () => {
         name: form.value.user.name,
         email: form.value.user.email,
         password: form.value.user.password,
-        role_id: form.value.user.role_id,
+        role_id: isAdminMode.value ? AGENT_ROLE_ID : form.value.user.role_id,
       },
-      info: form.value.info,
-      company: form.value.company,
+      info: {
+        ...form.value.info,
+      },
+      company: {
+        ...form.value.company,
+      },
+    }
+    if (isAdminMode.value) {
+      const defaults = buildAdminCompanyDefaults()
+      payload.info.company_id = defaults.companyId
+      payload.company = { ...payload.company, ...defaults.companyFields }
     }
     await api.post('/users', payload)
     toast.add({ severity: 'success', summary: 'Created', detail: 'User created', life: 2000 })
@@ -533,15 +602,17 @@ const submit = async () => {
 onMounted(fetchLists)
 
 const resetForm = () => {
+  const defaults = isAdminMode.value ? buildAdminCompanyDefaults() : null
   form.value = {
     user: {
       username: form.value.user.username,
       name: '',
       email: '',
       password: '',
-      role_id: '',
+      role_id: isAdminMode.value ? AGENT_ROLE_ID : '',
     },
     info: {
+      company_id: defaults?.companyId || '',
       current_city_id: '',
       phone: '',
       address: '',
@@ -551,13 +622,13 @@ const resetForm = () => {
       aadhaar_number: '',
     },
     company: {
-      company_name: '',
-      phone_number: '',
-      address: '',
-      state_id: '',
-      city_id: '',
-      zipcode: '',
-      gstin: '',
+      company_name: defaults?.companyFields.company_name || '',
+      phone_number: defaults?.companyFields.phone_number || '',
+      address: defaults?.companyFields.address || '',
+      state_id: defaults?.companyFields.state_id || '',
+      city_id: defaults?.companyFields.city_id || '',
+      zipcode: defaults?.companyFields.zipcode || '',
+      gstin: defaults?.companyFields.gstin || '',
     },
   }
   stateSearch.value = ''
@@ -575,8 +646,13 @@ const resetForm = () => {
   filteredCurrentCities.value = cities.value
   companyFilteredStates.value = states.value
   companyFilteredCities.value = cities.value
-  form.value.info.company_id = ''
+  if (!isAdminMode.value) {
+    form.value.info.company_id = ''
+  }
   step.value = 1
+  if (isAdminMode.value) {
+    applyAdminDefaults()
+  }
 }
 
 const handleClickOutside = (event) => {
@@ -787,5 +863,9 @@ select.modal-input::-webkit-scrollbar-thumb:hover {
   padding: 0.5rem 2rem;
   font-size: 1rem;
   border-radius: 5px;
+}
+.small-text{
+  margin-top: 0;
+  font-size: 13px;
 }
 </style>

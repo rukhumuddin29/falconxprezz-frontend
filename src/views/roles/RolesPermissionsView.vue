@@ -11,70 +11,131 @@
 
     <Card class="panel glassy light-panel">
       <template #content>
-        <div class="toolbar">
-          <div class="btn-group">
-            <button class="pill-btn" @click="openModal()">
-              <i class="pi pi-plus me-2"></i>
-              New Role
-            </button>
+        <div class="tab-pills">
+          <button :class="['tab', activeTab === 'roles' ? 'is-active' : '']" @click="activeTab = 'roles'">Roles</button>
+          <button :class="['tab', activeTab === 'permissions' ? 'is-active' : '']" @click="activeTab = 'permissions'">Permissions</button>
+        </div>
+
+        <div v-if="activeTab === 'roles'">
+          <div class="toolbar">
+            <div class="btn-group">
+              <button class="pill-btn" @click="openModal()">
+                <i class="pi pi-plus me-2"></i>
+                New Role
+              </button>
+            </div>
+            <div class="search-box">
+              <i class="pi pi-search"></i>
+              <input v-model="query" type="text" placeholder="Search roles..." />
+            </div>
           </div>
-          <div class="search-box">
-            <i class="pi pi-search"></i>
-            <input v-model="query" type="text" placeholder="Search roles..." />
+
+          <div class="table-wrap">
+            <table class="fx-table">
+              <thead>
+                <tr>
+                  <th width="80">#</th>
+                  <th>Role</th>
+                  <th>Slug</th>
+                  <th>Description</th>
+                  <th>Permissions</th>
+                  <th width="120">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loading">
+                  <td colspan="6" class="muted">Loading roles...</td>
+                </tr>
+                <tr v-else-if="filteredRoles.length === 0">
+                  <td colspan="6" class="muted">No roles found.</td>
+                </tr>
+                <tr v-for="(role, idx) in pagedRoles" :key="role.id">
+                  <td class="dark-text">{{ (page - 1) * perPage + idx + 1 }}</td>
+                  <td class="dark-text">{{ role.name }}</td>
+                  <td class="muted">{{ role.slug }}</td>
+                  <td>{{ role.description || '—' }}</td>
+                  <td>
+                    <div class="perm-chips">
+                      <span v-for="perm in role.permissions" :key="perm.id" class="chip">{{ perm.name }}</span>
+                    </div>
+                  </td>
+                  <td class="actions">
+                    <button class="pill-btn ghost sm" title="Edit" @click="openModal(role)">
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button class="pill-btn danger sm" title="Delete" @click="removeRole(role.id)">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <div class="muted">Showing {{ pagedRoles.length }} of {{ filteredRoles.length }} roles</div>
+            <div class="pager">
+              <button class="pager-btn" :disabled="page === 1" @click="page--"><span aria-hidden="true">‹</span></button>
+              <span class="pager-page">Page {{ page }} / {{ totalPages }}</span>
+              <button class="pager-btn" :disabled="page === totalPages" @click="page++"><span aria-hidden="true">›</span></button>
+              <select v-model.number="perPage" class="pager-select">
+                <option v-for="size in [5, 10, 20, 50]" :key="size" :value="size">{{ size }} / page</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="table-wrap">
-          <table class="fx-table">
-            <thead>
-              <tr>
-                <th width="80">#</th>
-                <th>Role</th>
-                <th>Slug</th>
-                <th>Description</th>
-                <th>Permissions</th>
-                <th width="120">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="loading">
-                <td colspan="6" class="muted">Loading roles...</td>
-              </tr>
-              <tr v-else-if="filteredRoles.length === 0">
-                <td colspan="6" class="muted">No roles found.</td>
-              </tr>
-              <tr v-for="(role, idx) in pagedRoles" :key="role.id">
-                <td class="dark-text">{{ (page - 1) * perPage + idx + 1 }}</td>
-                <td class="dark-text">{{ role.name }}</td>
-                <td class="muted">{{ role.slug }}</td>
-                <td>{{ role.description || '—' }}</td>
-                <td>
-                  <div class="perm-chips">
-                    <span v-for="perm in role.permissions" :key="perm.id" class="chip">{{ perm.name }}</span>
-                  </div>
-                </td>
-                <td class="actions">
-                  <button class="pill-btn ghost sm" title="Edit" @click="openModal(role)">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                  <button class="pill-btn danger sm" title="Delete" @click="removeRole(role.id)">
-                    <i class="pi pi-trash"></i>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <div v-else>
+          <div class="toolbar">
+            <div class="btn-group">
+              <button class="pill-btn" @click="openPermissionModal()">
+                <i class="pi pi-plus me-2"></i>
+                Add New Permission
+              </button>
+            </div>
+            <div class="search-box">
+              <i class="pi pi-search"></i>
+              <input v-model="permQuery" type="text" placeholder="Search permissions..." />
+            </div>
+          </div>
 
-        <div class="pagination">
-          <div class="muted">Showing {{ pagedRoles.length }} of {{ filteredRoles.length }} roles</div>
-          <div class="pager">
-            <button class="pager-btn" :disabled="page === 1" @click="page--"><span aria-hidden="true">‹</span></button>
-            <span class="pager-page">Page {{ page }} / {{ totalPages }}</span>
-            <button class="pager-btn" :disabled="page === totalPages" @click="page++"><span aria-hidden="true">›</span></button>
-            <select v-model.number="perPage" class="pager-select">
-              <option v-for="size in [5, 10, 20, 50]" :key="size" :value="size">{{ size }} / page</option>
-            </select>
+          <div class="table-wrap">
+            <table class="fx-table">
+              <thead>
+                <tr>
+                  <th width="80">#</th>
+                  <th>Name</th>
+                  <th>Slug</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loading">
+                  <td colspan="4" class="muted">Loading permissions...</td>
+                </tr>
+                <tr v-else-if="filteredPermissions.length === 0">
+                  <td colspan="4" class="muted">No permissions found.</td>
+                </tr>
+                <tr v-for="(perm, idx) in pagedPermissions" :key="perm.id">
+                  <td class="dark-text">{{ (permPage - 1) * permPerPage + idx + 1 }}</td>
+                  <td class="dark-text">{{ perm.name }}</td>
+                  <td class="muted">{{ perm.slug }}</td>
+                  <td>{{ perm.description || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination" v-if="filteredPermissions.length > permPerPage">
+            <div class="muted">Showing {{ pagedPermissions.length }} of {{ filteredPermissions.length }} permissions</div>
+            <div class="pager">
+              <button class="pager-btn" :disabled="permPage === 1" @click="permPage--"><span aria-hidden="true">‹</span></button>
+              <span class="pager-page">Page {{ permPage }} / {{ permTotalPages }}</span>
+              <button class="pager-btn" :disabled="permPage === permTotalPages" @click="permPage++"><span aria-hidden="true">›</span></button>
+              <select v-model.number="permPerPage" class="pager-select">
+                <option v-for="size in [5, 10, 20, 50]" :key="size" :value="size">{{ size }} / page</option>
+              </select>
+            </div>
           </div>
         </div>
       </template>
@@ -122,6 +183,39 @@
       </div>
     </div>
   </div>
+
+  <div v-if="showPermissionModal" class="modal-backdrop" @click.self="closePermissionModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Permission</h3>
+        <button class="ghost-btn" @click="closePermissionModal">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2">
+          <div>
+            <label class="field-label">Name</label>
+            <input v-model="permissionForm.name" class="modal-input" type="text" />
+          </div>
+          <div>
+            <label class="field-label">Slug</label>
+            <input v-model="permissionForm.slug" class="modal-input" type="text" />
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Description</label>
+          <input v-model="permissionForm.description" class="modal-input" type="text" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="pill-btn ghost" @click="closePermissionModal">Cancel</button>
+        <button class="pill-btn" :disabled="savingPermission" @click="savePermission">
+          {{ savingPermission ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -135,9 +229,15 @@ const permissions = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const showModal = ref(false)
+const showPermissionModal = ref(false)
+const savingPermission = ref(false)
+const activeTab = ref('roles')
 const query = ref('')
+const permQuery = ref('')
 const page = ref(1)
 const perPage = ref(10)
+const permPage = ref(1)
+const permPerPage = ref(10)
 
 const form = ref({
   id: null,
@@ -145,6 +245,12 @@ const form = ref({
   slug: '',
   description: '',
   permissions: [],
+})
+
+const permissionForm = ref({
+  name: '',
+  slug: '',
+  description: '',
 })
 
 const filteredRoles = computed(() => {
@@ -161,6 +267,22 @@ const totalPages = computed(() => Math.max(1, Math.ceil(filteredRoles.value.leng
 const pagedRoles = computed(() => {
   const start = (page.value - 1) * perPage.value
   return filteredRoles.value.slice(start, start + perPage.value)
+})
+
+const filteredPermissions = computed(() => {
+  const q = permQuery.value.toLowerCase()
+  return permissions.value.filter(
+    (p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.slug.toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q)
+  )
+})
+
+const permTotalPages = computed(() => Math.max(1, Math.ceil(filteredPermissions.value.length / permPerPage.value)))
+const pagedPermissions = computed(() => {
+  const start = (permPage.value - 1) * permPerPage.value
+  return filteredPermissions.value.slice(start, start + permPerPage.value)
 })
 
 const loadData = async () => {
@@ -233,6 +355,33 @@ const removeRole = async (id) => {
   }
 }
 
+const openPermissionModal = () => {
+  permissionForm.value = { name: '', slug: '', description: '' }
+  showPermissionModal.value = true
+}
+
+const closePermissionModal = () => {
+  showPermissionModal.value = false
+}
+
+const savePermission = async () => {
+  if (!permissionForm.value.name || !permissionForm.value.slug) {
+    toast.add({ severity: 'error', summary: 'Validation', detail: 'Name and slug are required', life: 2000 })
+    return
+  }
+  savingPermission.value = true
+  try {
+    const { data } = await api.post('/roles-permissions/permissions', permissionForm.value)
+    permissions.value.push(data.data)
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Permission added', life: 2000 })
+    closePermissionModal()
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Unable to add permission', life: 2500 })
+  } finally {
+    savingPermission.value = false
+  }
+}
+
 onMounted(loadData)
 </script>
 
@@ -265,6 +414,29 @@ onMounted(loadData)
   border: none;
   outline: none;
   width: 100%;
+}
+
+.tab-pills {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tab {
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #cbd2e6;
+  background: #f8f9ff;
+  color: #1a2743;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 700;
+}
+
+.tab.is-active {
+  background: #2f64f6;
+  color: #fff;
+  border-color: #2f64f6;
 }
 
 .table-wrap {
