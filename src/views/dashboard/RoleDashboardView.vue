@@ -27,18 +27,97 @@
           </div>
         </div>
       </div>
-      <Divider />
-      <p class="muted">
-        Use the left navigation to access parcels, pickups, users, roles, and reporting modules. Each dashboard will expose widgets
-        tailored to its role group.
-      </p>
+    </Card>
+
+    <Card class="panel glassy">
+      <div class="panel-grid">
+        <div v-if="isSuper && stats" class="panel-block stat-card">
+          <div class="card-header">
+            <p class="label">App Users</p>
+          </div>
+          <div class="stat-row two-cols">
+            <div>
+              <p class="sub-label">Users</p>
+              <h3 class="stat-value">{{ stats.users?.users ?? '—' }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Vendors</p>
+              <h3 class="stat-value">{{ stats.users?.vendors ?? '—' }}</h3>
+            </div>
+          </div>
+          <div class="stat-row two-cols">
+            <div>
+              <p class="sub-label">Agents</p>
+              <h3 class="stat-value">{{ stats.users?.agents ?? '—' }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Franchise</p>
+              <h3 class="stat-value">{{ stats.users?.franchise ?? '—' }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="isAdmin && stats" class="panel-block stat-card">
+          <div class="card-header">
+            <p class="label">Team</p>
+          </div>
+          <div class="stat-row">
+            <div>
+              <p class="sub-label">Agents</p>
+              <h3 class="stat-value">{{ stats.users?.agents ?? '—' }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="stats" class="panel-block stat-card">
+          <div class="card-header">
+            <p class="label">Bookings</p>
+          </div>
+          <div class="stat-row three-cols">
+            <div>
+              <p class="sub-label">International</p>
+              <h3 class="stat-value">{{ stats.counts?.international ?? '—' }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Domestic</p>
+              <h3 class="stat-value">{{ stats.counts?.domestic ?? '—' }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Cargo</p>
+              <h3 class="stat-value">{{ stats.counts?.cargo ?? '—' }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="stats" class="panel-block stat-card">
+          <div class="card-header">
+            <p class="label">Total Revenue</p>
+          </div>
+          <div class="stat-row three-cols">
+            <div>
+              <p class="sub-label">Today</p>
+              <h3 class="stat-value">₹ {{ (stats.revenue?.today ?? 0).toLocaleString() }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Month</p>
+              <h3 class="stat-value">₹ {{ (stats.revenue?.month ?? 0).toLocaleString() }}</h3>
+            </div>
+            <div>
+              <p class="sub-label">Year</p>
+              <h3 class="stat-value">₹ {{ (stats.revenue?.year ?? 0).toLocaleString() }}</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p v-if="loading" class="muted small">Loading stats...</p>
     </Card>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import api from '@/api/http'
 
 const props = defineProps({
   title: { type: String, default: 'Dashboard' },
@@ -50,6 +129,26 @@ const auth = useAuthStore()
 const userName = computed(() => auth.user?.name || 'User')
 const username = computed(() => auth.user?.username || 'FX----')
 const roles = computed(() => auth.roles.length ? auth.roles : ['unassigned'])
+
+const stats = ref(null)
+const loading = ref(false)
+const isSuper = computed(() => auth.hasRole(['super_admin']))
+const isAdmin = computed(() => auth.hasRole(['admin']) && !isSuper.value)
+const isAgentOrVendor = computed(() => auth.hasRole(['agent']) || auth.hasRole(['vendor']))
+
+const fetchStats = async () => {
+  loading.value = true
+  try {
+    const { data } = await api.get('/dashboard/stats')
+    stats.value = data
+  } catch (e) {
+    stats.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchStats)
 </script>
 
 <style scoped>
@@ -147,6 +246,41 @@ const roles = computed(() => auth.roles.length ? auth.roles : ['unassigned'])
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.35rem;
+}
+
+.stat-card {
+  background: #f9fbff;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.stat-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.stat-row.two-cols {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.stat-row.three-cols {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.sub-label {
+  margin: 0;
+  color: #6b758f;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  margin: 0.1rem 0 0.25rem;
 }
 
 .chip {

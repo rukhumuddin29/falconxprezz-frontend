@@ -7,6 +7,12 @@
           <h2 class="hero-title">All Users</h2>
           <p class="small-text">Search and browse users</p>
         </div>
+        <div class="hero-actions">
+          <button class="pill-btn" @click="$router.push({ name: 'users' })">
+            <i class="pi pi-plus me-2"></i>
+            Add New User
+          </button>
+        </div>
       </div>
     </div>
 
@@ -163,6 +169,17 @@ const changePerPage = () => {
   gap: 1rem;
 }
 
+.hero-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+}
+
 .search-input {
   flex: 1;
   border: 1px solid #dce4ff;
@@ -260,5 +277,10 @@ const changePerPage = () => {
 
 .center {
   text-align: center;
+}
+
+.small-text{
+  margin-top: 0;
+  font-size: 13px;
 }
 </style>

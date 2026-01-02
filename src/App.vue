@@ -11,6 +11,8 @@ const navCollapsed = ref(false)
 const isMobile = ref(false)
 const appSettings = ref(null)
 const showUsersMenu = ref(false)
+const showLocationsMenu = ref(false)
+const mainDashboardRoute = computed(() => auth.defaultDashboardRoute || { name: 'login' })
 
 const menuItems = [
   { label: 'Booking', icon: 'pi pi-calendar-plus', route: { name: 'booking' }, roles: ['super_admin', 'admin', 'agent'] },
@@ -18,12 +20,15 @@ const menuItems = [
   { label: 'Rate Margin', icon: 'pi pi-percentage', route: { name: 'rate.margins' }, roles: ['super_admin', 'admin'], permissions: ['manage-rate-margin'] },
   { label: 'Service Providers', icon: 'pi pi-truck', route: { name: 'service.providers' }, roles: ['super_admin', 'admin'], permissions: ['manage-service-providers'] },
   { label: 'Reports', icon: 'pi pi-chart-line', route: { name: 'super.dashboard' }, roles: ['super_admin', 'admin', 'vendor'] },
-  { label: 'Served Countries', icon: 'pi pi-globe', route: { name: 'locations.served' }, roles: ['super_admin', 'admin'], permissions: ['manage-served-countries'] },
-  { label: 'Indian Locations', icon: 'pi pi-map', route: { name: 'locations.india' }, roles: ['super_admin', 'admin'], permissions: ['manage-indian-locations'] },
-  { label: 'Zones', icon: 'pi pi-flag', route: { name: 'zones' }, roles: ['super_admin', 'admin'], permissions: ['manage-zones'] },
   { label: 'Shipment Settings', icon: 'pi pi-cog', route: { name: 'shipment.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage_shipment_settings'] },
   { label: 'Roles & Permissions', icon: 'pi pi-key', route: { name: 'roles.permissions' }, roles: ['super_admin', 'admin'], permissions: ['manage_roles', 'manage_permissions'] },
   { label: 'App Settings', icon: 'pi pi-sliders-h', route: { name: 'app.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage-app-settings'] },
+]
+
+const locationMenuItems = [
+  { label: 'Served Countries', icon: 'pi pi-globe', route: { name: 'locations.served' }, roles: ['super_admin', 'admin'], permissions: ['manage-served-countries'] },
+  { label: 'Indian Locations', icon: 'pi pi-map', route: { name: 'locations.india' }, roles: ['super_admin', 'admin'], permissions: ['manage-indian-locations'] },
+  { label: 'Zones', icon: 'pi pi-flag', route: { name: 'zones' }, roles: ['super_admin', 'admin'], permissions: ['manage-zones'] },
 ]
 
 const showShell = computed(() => auth.isAuthenticated)
@@ -42,13 +47,32 @@ const visibleMenu = computed(() => {
   })
 })
 
+const visibleLocationMenu = computed(() => {
+  if (!auth.user?.roles) return []
+  return locationMenuItems.filter((item) => {
+    const roleOk = item.roles.some((role) => auth.user.roles.includes(role))
+    const permOk = !item.permissions || auth.hasPermission(item.permissions)
+    return roleOk && permOk
+  })
+})
+
 const isUsersGroupActive = computed(() => {
   return ['users', 'users.all', 'companies.list'].includes(route.name)
+})
+
+const isLocationsGroupActive = computed(() => {
+  return ['locations.served', 'locations.india', 'zones'].includes(route.name)
 })
 
 watchEffect(() => {
   if (isUsersGroupActive.value) {
     showUsersMenu.value = true
+  }
+})
+
+watchEffect(() => {
+  if (isLocationsGroupActive.value) {
+    showLocationsMenu.value = true
   }
 })
 
@@ -155,8 +179,8 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
           <p class="nav-heading">Navigation</p>
           <button
             class="nav-item"
-            v-if="visibleMenu.find((item) => item.route.name === 'super.dashboard')"
-            @click="router.push({ name: 'super.dashboard' })"
+            v-if="showShell"
+            @click="router.push(mainDashboardRoute)"
             title="Dashboard"
           >
             <i class="pi pi-compass"></i>
@@ -192,6 +216,32 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
               >
                 <i class="pi pi-building"></i>
                 <span>Registered Companies</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="visibleLocationMenu.length" class="nav-group">
+            <div
+              class="nav-item nav-parent"
+              :class="isLocationsGroupActive ? 'is-active' : ''"
+              @click="showLocationsMenu = !showLocationsMenu"
+              title="Location Settings"
+            >
+              <div class="nav-parent-label">
+                <i class="pi pi-map-marker"></i>
+                <span>Location Settings</span>
+              </div>
+              <i :class="['pi', showLocationsMenu ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+            </div>
+            <div v-if="showLocationsMenu && !navCollapsed" class="nav-submenu">
+              <button
+                v-for="item in visibleLocationMenu"
+                :key="item.label"
+                class="nav-subitem"
+                @click="router.push(item.route)"
+                :title="item.label"
+              >
+                <i :class="['pi', item.icon]"></i>
+                <span>{{ item.label }}</span>
               </button>
             </div>
           </div>
@@ -337,7 +387,7 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
   border: none;
   background: transparent;
   color: #e8edff;
-  padding: 0.55rem 0 0.8rem 0.2rem;
+  padding: 0.85rem 0 0.85rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.1s ease;

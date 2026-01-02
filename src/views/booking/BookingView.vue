@@ -86,22 +86,35 @@
             <p v-if="errors.shipperName" class="error-text">{{ errors.shipperName }}</p>
           </div>
           <div>
-            <label class="field-label">Address</label>
-            <input class="input c-height" type="text" v-model="shipper.address" />
-            <p v-if="errors.shipperAddress" class="error-text">{{ errors.shipperAddress }}</p>
-          </div>
-          <div>
             <label class="field-label">Phone No</label>
             <input class="input c-height" type="text" v-model="shipper.phone" />
             <p v-if="errors.shipperPhone" class="error-text">{{ errors.shipperPhone }}</p>
+          </div>
+          <div>
+            <label class="field-label">Address</label>
+            <input class="input c-height" type="text" v-model="shipper.address" />
+            <p v-if="errors.shipperAddress" class="error-text">{{ errors.shipperAddress }}</p>
           </div>
           <div>
             <label class="field-label">Address 2</label>
             <input class="input c-height" type="text" v-model="shipper.address2" />
           </div>
           <div>
+            <label class="field-label">Aadhaar</label>
+            <input class="input c-height" type="text" v-model="shipper.aadhaar" />
+          </div>
+          <div>
+            <label class="field-label">Pincode</label>
+            <input class="input c-height" type="text" v-model="shipper.pincode" placeholder="e.g. 560001" />
+            <p v-if="errors.shipperPincode" class="error-text">{{ errors.shipperPincode }}</p>
+          </div>
+          <div>
             <label class="field-label">State</label>
-            <div class="custom-select" @click="stateOpen = !stateOpen">
+            <div
+              class="custom-select"
+              :class="{ disabled: shipperLocationLocked }"
+              @click="!shipperLocationLocked && (stateOpen = !stateOpen)"
+            >
               <div class="select-display">
                 <span v-if="selectedState">{{ selectedState.title }}</span>
                 <span v-else class="muted">Choose state</span>
@@ -125,7 +138,11 @@
           </div>
           <div>
             <label class="field-label">City</label>
-            <div class="custom-select" :class="{ disabled: !shipperStateId }" @click="cityOpen = !cityOpen && !!shipperStateId">
+            <div
+              class="custom-select"
+              :class="{ disabled: !shipperStateId || shipperLocationLocked }"
+              @click="!shipperLocationLocked && shipperStateId && (cityOpen = !cityOpen)"
+            >
               <div class="select-display">
                 <span v-if="selectedCity">{{ selectedCity.title }}</span>
                 <span v-else class="muted">Choose city</span>
@@ -147,44 +164,36 @@
             </div>
             <p v-if="errors.shipperCity" class="error-text">{{ errors.shipperCity }}</p>
           </div>
-          <div>
-            <label class="field-label">Pincode</label>
-            <input class="input c-height" type="text" v-model="shipper.pincode" />
-            <p v-if="errors.shipperPincode" class="error-text">{{ errors.shipperPincode }}</p>
-          </div>
-          <div>
-            <label class="field-label">Aadhaar</label>
-            <input class="input c-height" type="text" v-model="shipper.aadhaar" />
-          </div>
         </div>
       </div>
 
       <div class="panel">
         <h4>Consignee Details</h4>
         <div class="m-bottom-1">
-          <label class="field-label">Destination</label>
-          <div class="custom-select" @click="destOpen = !destOpen">
-            <div class="select-display">
-              <span v-if="selectedDestination">{{ selectedDestination.title }} ({{ selectedDestination.code }})</span>
-              <span v-else class="muted">Choose One</span>
-              <i :class="['pi', destOpen ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
-            </div>
-            <div v-if="destOpen" class="select-dropdown">
-              <div class="dropdown-search" @click.stop>
-                <input class="input c-height" type="text" v-model="destSearch" placeholder="Search destination..." />
+            <label class="field-label">Destination</label>
+            <div v-if="!isDomesticOrCargo" class="custom-select" @click="destOpen = !destOpen">
+              <div class="select-display">
+                <span v-if="selectedDestination">{{ selectedDestination.title }} ({{ selectedDestination.code }})</span>
+                <span v-else class="muted">Choose One</span>
+                <i :class="['pi', destOpen ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
               </div>
-              <div
-                v-for="dest in filteredDestinations"
-                :key="dest.id"
-                class="select-option"
-                @click.stop="selectDestination(dest.id)"
-              >
-                {{ dest.title }} ({{ dest.code }})
+              <div v-if="destOpen" class="select-dropdown">
+                <div class="dropdown-search" @click.stop>
+                  <input class="input c-height" type="text" v-model="destSearch" placeholder="Search destination..." />
+                </div>
+                <div
+                  v-for="dest in filteredDestinations"
+                  :key="dest.id"
+                  class="select-option"
+                  @click.stop="selectDestination(dest.id)"
+                >
+                  {{ dest.title }} ({{ dest.code }})
+                </div>
               </div>
             </div>
+            <p v-if="errors.destination && !isDomesticOrCargo" class="error-text">{{ errors.destination }}</p>
+            <p v-if="isDomesticOrCargo" class="muted small">Destination auto-managed for Domestic/Cargo.</p>
           </div>
-          <p v-if="errors.destination" class="error-text">{{ errors.destination }}</p>
-        </div>
         <div class="grid grid-2">
           <div>
             <label class="field-label">Name</label>
@@ -206,10 +215,66 @@
             <input class="input c-height" type="text" v-model="consigneeForm.address2" />
           </div>
           <div>
-            <label class="field-label">Zip code</label>
+            <label class="field-label">{{ isDomesticOrCargo ? 'Pincode' : 'Zip code' }}</label>
             <input class="input c-height" type="text" v-model="consigneeForm.zipcode" />
             <p v-if="errors.consigneeZip" class="error-text">{{ errors.consigneeZip }}</p>
           </div>
+          <template v-if="isDomesticOrCargo">
+            <div>
+              <label class="field-label">State</label>
+              <div
+                class="custom-select"
+                :class="{ disabled: consigneeLocationLocked }"
+                @click="!consigneeLocationLocked && (stateOpen = !stateOpen)"
+              >
+                <div class="select-display">
+                  <span v-if="consigneeStateId">{{ states.find((s) => s.id === consigneeStateId)?.title }}</span>
+                  <span v-else class="muted">Choose state</span>
+                  <i :class="['pi', stateOpen ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+                </div>
+                <div v-if="stateOpen" class="select-dropdown">
+                  <div class="dropdown-search" @click.stop>
+                    <input class="input c-height" type="text" v-model="stateSearch" placeholder="Search state..." />
+                  </div>
+                  <div
+                    v-for="state in filteredStates"
+                    :key="state.id"
+                    class="select-option"
+                    @click.stop="selectConsigneeState(state.id)"
+                  >
+                    {{ state.title }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="field-label">City</label>
+              <div
+                class="custom-select"
+                :class="{ disabled: !consigneeStateId || consigneeLocationLocked }"
+                @click="!consigneeLocationLocked && consigneeStateId && (cityOpen = !cityOpen)"
+              >
+                <div class="select-display">
+                  <span v-if="consigneeCityId">{{ cities.find((c) => c.id === consigneeCityId)?.title }}</span>
+                  <span v-else class="muted">Choose city</span>
+                  <i :class="['pi', cityOpen ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+                </div>
+                <div v-if="cityOpen" class="select-dropdown">
+                  <div class="dropdown-search" @click.stop>
+                    <input class="input c-height" type="text" v-model="consigneeCitySearch" placeholder="Search city..." />
+                  </div>
+                  <div
+                    v-for="city in filteredConsigneeCities"
+                    :key="city.id"
+                    class="select-option"
+                    @click.stop="selectConsigneeCity(city.id)"
+                  >
+                    {{ city.title }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -632,7 +697,7 @@
       </div>
       <div class="summary-actions">
         <span v-if="calcError" class="calc-error">{{ calcError }}</span>
-        <button class="pill-btn ghost" type="button" @click="calculateBooking">Calculate</button>
+        <button v-if="!isAgent" class="pill-btn ghost" type="button" @click="calculateBooking">Calculate</button>
         <button class="pill-btn" type="button" @click="validateBeforeConfirm">Confirm Booking</button>
       </div>
     </div>
@@ -693,6 +758,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import api from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 
 const packages = ref([
   { id: 1, weight: '', pieces: '', length: '', width: '', height: '', vol: '', chrg: '' },
@@ -713,6 +779,8 @@ const toKolkataISO = () => {
 }
 
 const { date: today, time: now } = toKolkataISO()
+const auth = useAuthStore()
+const isAgent = computed(() => auth.hasRole(['agent']))
 
 const destinations = ref([])
 const consignee = ref({ destinationId: '' })
@@ -722,6 +790,10 @@ const states = ref([])
 const cities = ref([])
 const shipperStateId = ref('')
 const shipperCityId = ref('')
+const shipperLocationLocked = ref(false)
+const consigneeStateId = ref('')
+const consigneeCityId = ref('')
+const consigneeLocationLocked = ref(false)
 const vendors = ref([])
 const agents = ref([])
 const serviceTypes = ref([])
@@ -733,6 +805,7 @@ const itemError = ref('')
 const destSearch = ref('')
 const stateSearch = ref('')
 const citySearch = ref('')
+const consigneeCitySearch = ref('')
 const bookingTypes = ref([])
 const bookingTypeId = ref('')
 const bookingTypeOpen = ref(false)
@@ -904,6 +977,7 @@ const fetchStatesCities = async () => {
     ])
     states.value = (statesRes.data.data || []).filter((s) => s.status ?? s.is_active ?? 1)
     cities.value = (citiesRes.data.data || []).filter((c) => c.status ?? c.is_active ?? 1)
+    await autoFillCityFromPincode()
   } catch (e) {
     // ignore
   }
@@ -928,6 +1002,14 @@ const filteredDestinations = computed(() => {
     return !q || hay.includes(q)
   })
 })
+const filteredConsigneeCities = computed(() =>
+  cities.value.filter((c) => {
+    const matchesState = !consigneeStateId.value || c.state_id === consigneeStateId.value
+    const q = consigneeCitySearch.value.toLowerCase()
+    const matchesSearch = !q || (c.title || '').toLowerCase().includes(q)
+    return matchesState && matchesSearch
+  })
+)
 
 const selectedVendor = computed(() => vendors.value.find((v) => v.id === service.value.vendorId))
 const selectedAgent = computed(() => agents.value.find((a) => a.id === service.value.agentId))
@@ -964,6 +1046,70 @@ const volumetricWeightDisplay = computed(() => toNum(volumetricWeight.value).toF
 const piecesDisplay = computed(() => (totals.value.sumPieces || 0).toString())
 const bookingTypeLabel = computed(() => selectedBookingType.value?.title || '')
 const isDomesticOrCargo = computed(() => /domestic|cargo/i.test(bookingTypeLabel.value))
+const autoFillCityFromPincode = async () => {
+  const pin = (shipper.pincode || '').trim()
+  if (!pin || pin.length < 3) return
+  try {
+    const { data } = await api.get('/pincodes/search', { params: { q: pin, per_page: 1 } })
+    const record = data?.data?.[0]
+    if (!record) return
+
+    const normalizedState = (record.statename || '').toLowerCase()
+    const stateMatch =
+      states.value.find((s) => (s.title || '').toLowerCase() === normalizedState) ||
+      states.value.find((s) => (s.title || '').toLowerCase().includes(normalizedState))
+    if (stateMatch) {
+      shipperStateId.value = stateMatch.id
+    }
+
+  const baseRegion = (record.regionname || '').split(' ')[0] || ''
+  const normalizedCity = (baseRegion || record.districtname || '').toLowerCase()
+    const cityMatch =
+      cities.value.find((c) => (c.title || '').toLowerCase() === normalizedCity) ||
+      cities.value.find((c) => (c.title || '').toLowerCase().includes(normalizedCity))
+    if (cityMatch) {
+      shipperCityId.value = cityMatch.id
+    }
+    if (stateMatch || cityMatch) {
+      shipperLocationLocked.value = true
+    }
+  } catch (error) {
+    // ignore
+  }
+}
+
+const autoFillConsigneeFromPincode = async () => {
+  const pin = (consigneeForm.zipcode || '').trim()
+  if (!pin || pin.length < 3) return
+  if (!isDomesticOrCargo.value) return
+  try {
+    const { data } = await api.get('/pincodes/search', { params: { q: pin, per_page: 1 } })
+    const record = data?.data?.[0]
+    if (!record) return
+
+    const normalizedState = (record.statename || '').toLowerCase()
+    const stateMatch =
+      states.value.find((s) => (s.title || '').toLowerCase() === normalizedState) ||
+      states.value.find((s) => (s.title || '').toLowerCase().includes(normalizedState))
+    if (stateMatch) {
+      consigneeStateId.value = stateMatch.id
+    }
+
+    const baseRegion = (record.regionname || '').split(' ')[0] || ''
+    const normalizedCity = (baseRegion || record.districtname || '').toLowerCase()
+    const cityMatch =
+      cities.value.find((c) => (c.title || '').toLowerCase() === normalizedCity) ||
+      cities.value.find((c) => (c.title || '').toLowerCase().includes(normalizedCity))
+    if (cityMatch) {
+      consigneeCityId.value = cityMatch.id
+    }
+    if (stateMatch || cityMatch) {
+      consigneeLocationLocked.value = true
+    }
+  } catch (error) {
+    // ignore
+  }
+}
 
 const addPackage = () => {
   const nextId = (packages.value[packages.value.length - 1]?.id || 1) + 1
@@ -973,6 +1119,28 @@ const addPackage = () => {
 const removePackage = (idx) => {
   packages.value.splice(idx, 1)
 }
+
+watch(
+  () => shipper.pincode,
+  () => {
+    autoFillCityFromPincode()
+  }
+)
+
+watch(
+  () => cities.value.length,
+  () => {
+    autoFillCityFromPincode()
+    autoFillConsigneeFromPincode()
+  }
+)
+
+watch(
+  () => consigneeForm.zipcode,
+  () => {
+    autoFillConsigneeFromPincode()
+  }
+)
 
 onMounted(() => {
   fetchDestinations()

@@ -204,4 +204,9 @@ const changePerPage = () => {
 .center {
   text-align: center;
 }
+
+.small-text{
+  margin-top: 0;
+  font-size: 13px;
+}
 </style>
