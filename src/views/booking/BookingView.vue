@@ -746,9 +746,28 @@
             <span class="muted">INR {{ (Number(summary.payableAmount) || 0).toFixed(2) }}</span>
           </div>
         </div>
+        <p v-if="submitError" class="error-text m-top-1" style="padding: 0 1rem;">{{ submitError }}</p>
         <div class="modal-actions">
           <button class="pill-btn ghost" type="button" @click="closeConfirm">Cancel / Edit</button>
           <button class="pill-btn" type="button" @click="submitConfirm">Submit</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="successState.open" class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h4>Booking Saved</h4>
+          <button class="icon-btn" type="button" @click="closeSuccess"><i class="pi pi-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="muted">{{ successState.message || 'Booking saved successfully.' }}</p>
+          <p v-if="successState.reference" class="success-ref">
+            Reference: <strong>{{ successState.reference }}</strong>
+          </p>
+        </div>
+        <div class="modal-actions">
+          <button class="pill-btn" type="button" @click="closeSuccess">Close</button>
         </div>
       </div>
     </div>
@@ -870,6 +889,12 @@ const charge = reactive({
   reference: '',
   content: '',
   instruction: '',
+})
+const submitError = ref('')
+const successState = reactive({
+  open: false,
+  reference: '',
+  message: '',
 })
 const paymentOptions = ['Credit', 'Cash', 'Prepaid']
 const calcError = ref('')
@@ -1364,8 +1389,12 @@ const selectFormat = (val) => {
 
 const calculateBooking = async () => {
   const pkg = packages.value[0] || {}
-  if (!consignee.value.destinationId || !service.value.packageType || !service.value.vendorId) {
-    calcError.value = 'Select destination, package type, and courier service to calculate.'
+  const needsDestination = !isDomesticOrCargo.value
+
+  if (!service.value.packageType || !service.value.vendorId || (needsDestination && !consignee.value.destinationId)) {
+    calcError.value = needsDestination
+      ? 'Select destination, package type, and courier service to calculate.'
+      : 'Select package type and courier service to calculate.'
     return
   }
   calcError.value = ''
@@ -1376,7 +1405,8 @@ const calculateBooking = async () => {
   try {
     const chargeToSend = summary.chargedWeight || toNum(totals.value.sumChrg || volInput)
     const { data } = await api.post('/bookings/calculate', {
-      destination_id: consignee.value.destinationId,
+      booking_type_id: bookingTypeId.value || null,
+      destination_id: needsDestination ? consignee.value.destinationId : null,
       package_type_id: service.value.packageType,
       provider_id: service.value.vendorId,
       length,
@@ -1388,9 +1418,11 @@ const calculateBooking = async () => {
     const res = data.data || {}
     const volMetric = Number(toNum(volumetricWeight.value).toFixed(2))
     summary.volumeMetric = volMetric
+    summary.chargedWeight = Number(res.charged_weight ?? chargeToSend)
     summary.payableAmount = Number(res.payable_amount ?? 0)
   } catch (e) {
-    calcError.value = 'Calculation failed. Please try again.'
+    const msg = e?.response?.data?.message || 'Calculation failed. Please try again.'
+    calcError.value = msg
   }
 }
 
@@ -1440,20 +1472,114 @@ const recalcItem = (item) => {
   item.amount = amt
 }
 
+const resetForm = () => {
+  bookingTypeId.value = ''
+  bookingTypeDisabled.value = false
+  bookingTypeOpen.value = false
+  agentOpen.value = false
+  destOpen.value = false
+  stateOpen.value = false
+  cityOpen.value = false
+  serviceTypeOpen.value = false
+  serviceTypeDisabled.value = false
+  vendorOpen.value = false
+  shipmentOpen.value = false
+  packageOpen.value = false
+  shipper.name = ''
+  shipper.address = ''
+  shipper.address2 = ''
+  shipper.phone = ''
+  shipper.aadhaar = ''
+  shipper.pincode = ''
+  shipperStateId.value = ''
+  shipperCityId.value = ''
+  shipperLocationLocked.value = false
+  consigneeForm.name = ''
+  consigneeForm.phone = ''
+  consigneeForm.address = ''
+  consigneeForm.address2 = ''
+  consigneeForm.zipcode = ''
+  consigneeStateId.value = ''
+  consigneeCityId.value = ''
+  consigneeLocationLocked.value = false
+  consignee.value.destinationId = ''
+  service.value.vendorId = ''
+  service.value.agentId = ''
+  service.value.serviceTypeId = ''
+  service.value.packageType = ''
+  service.value.shipmentType = ''
+  service.value.csbTypeId = ''
+  service.value.termTypeId = ''
+  service.value.exportReasonId = ''
+  shipmentValue.value = ''
+  manualBookingId.value = ''
+  companyName.value = ''
+  companyLocked.value = false
+  gstInvoice.value = 'No'
+  gst.invoiceNo = ''
+  gst.invoiceDate = ''
+  gst.departmentNo = ''
+  charge.paymentType = ''
+  charge.reference = ''
+  charge.content = ''
+  charge.instruction = ''
+  packages.value = [
+    { id: 1, weight: '', pieces: '', length: '', width: '', height: '', vol: '', chrg: '' },
+  ]
+  manifestItems.value = [
+    { id: 1, boxNo: '', packages: '', description: '', hsn: '', quantity: '', weight: '', unit: '', rate: '', amount: '' },
+  ]
+  summary.volumeMetric = 0
+  summary.chargedWeight = 0
+  summary.totalBoxes = 0
+  summary.payableAmount = 0
+  errors.bookingType = ''
+  errors.destination = ''
+  errors.vendor = ''
+  errors.packageType = ''
+  errors.serviceType = ''
+  errors.shipperName = ''
+  errors.shipperAddress = ''
+  errors.shipperPhone = ''
+  errors.shipperState = ''
+  errors.shipperCity = ''
+  errors.shipperPincode = ''
+  errors.consigneeName = ''
+  errors.consigneePhone = ''
+  errors.consigneeAddress = ''
+  errors.consigneeZip = ''
+  errors.package = ''
+  errors.csbType = ''
+  errors.termType = ''
+  errors.exportReason = ''
+  itemError.value = ''
+  calcError.value = ''
+  submitError.value = ''
+}
+
 const closeConfirm = () => {
+  submitError.value = ''
   confirmOpen.value = false
 }
 
+const closeSuccess = () => {
+  successState.open = false
+  successState.reference = ''
+  successState.message = ''
+  resetForm()
+}
+
 const submitConfirm = () => {
+  submitError.value = ''
   const performaPayload = isDomesticOrCargo.value
     ? null
     : {
         csb_type_id: service.value.csbTypeId || null,
         term_invoice_id: service.value.termTypeId || null,
         gst: gstInvoice.value === 'Yes' ? 1 : 0,
-        invoice_number: gst.invoiceNo || null,
+        invoice_number: (gst.invoiceNo || '').toString().trim(),
         invoice_date: gst.invoiceDate || null,
-        deperatement_number: gst.departmentNo || null,
+        department_number: gst.departmentNo || null,
         export_reason_id: service.value.exportReasonId || null,
         format: selectedFormat.value || null,
       }
@@ -1471,7 +1597,7 @@ const submitConfirm = () => {
     currency: 'INR',
     shipment_type: service.value.shipmentType || 'Commercial',
     manual_booking_id: manualBookingId.value || null,
-    foraward_number: null,
+    forward_number: null,
     consignee: {
       destination_id: consignee.value.destinationId,
       consignee_name: consigneeForm.name,
@@ -1525,11 +1651,23 @@ const submitConfirm = () => {
 
   api
     .post('/bookings', payload)
-    .then(() => {
+    .then((res) => {
+      const bookingData = res?.data?.data || {}
+      successState.reference = bookingData.booking_reference || ''
+      successState.message = res?.data?.message || 'Booking saved successfully.'
+      successState.open = true
       confirmOpen.value = false
     })
-    .catch(() => {
-      calcError.value = 'Submission failed. Please review required fields.'
+    .catch((e) => {
+      const fallback = 'Submission failed. Please review required fields.'
+      const message = e?.response?.data?.message || fallback
+      const validation = e?.response?.data?.errors
+      if (validation && typeof validation === 'object') {
+        const firstField = Object.values(validation)[0]
+        submitError.value = Array.isArray(firstField) ? firstField[0] : message
+      } else {
+        submitError.value = message
+      }
     })
 }
 

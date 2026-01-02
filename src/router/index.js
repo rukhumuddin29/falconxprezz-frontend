@@ -13,6 +13,8 @@ import RolesPermissionsView from '@/views/roles/RolesPermissionsView.vue'
 import ShipmentSettingsView from '@/views/shipment/ShipmentSettingsView.vue'
 import AppSettingsView from '@/views/settings/AppSettingsView.vue'
 import BookingView from '@/views/booking/BookingView.vue'
+import BookingListView from '@/views/booking/BookingListView.vue'
+import BookingDetailView from '@/views/booking/BookingDetailView.vue'
 import RateMarginView from '@/views/rate/RateMarginView.vue'
 import RateCardsView from '@/views/rate/RateCardsView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -146,6 +148,20 @@ const router = createRouter({
       path: '/booking',
       name: 'booking',
       component: BookingView,
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin', 'agent'] },
+    },
+    {
+      path: '/bookings/type/:typeId?',
+      name: 'bookings.type',
+      component: BookingListView,
+      props: true,
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin', 'agent'] },
+    },
+    {
+      path: '/bookings/:id',
+      name: 'bookings.show',
+      component: BookingDetailView,
+      props: true,
       meta: { requiresAuth: true, roles: ['admin', 'super_admin', 'agent'] },
     },
     {

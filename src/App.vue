@@ -12,10 +12,11 @@ const isMobile = ref(false)
 const appSettings = ref(null)
 const showUsersMenu = ref(false)
 const showLocationsMenu = ref(false)
+const showBookingsMenu = ref(false)
+const bookingTypes = ref([])
 const mainDashboardRoute = computed(() => auth.defaultDashboardRoute || { name: 'login' })
 
 const menuItems = [
-  { label: 'Booking', icon: 'pi pi-calendar-plus', route: { name: 'booking' }, roles: ['super_admin', 'admin', 'agent'] },
   { label: 'Rate Cards', icon: 'pi pi-tags', route: { name: 'rate.cards' }, roles: ['super_admin', 'admin'], permissions: ['manage-rate-card'] },
   { label: 'Rate Margin', icon: 'pi pi-percentage', route: { name: 'rate.margins' }, roles: ['super_admin', 'admin'], permissions: ['manage-rate-margin'] },
   { label: 'Service Providers', icon: 'pi pi-truck', route: { name: 'service.providers' }, roles: ['super_admin', 'admin'], permissions: ['manage-service-providers'] },
@@ -60,9 +61,15 @@ const isUsersGroupActive = computed(() => {
   return ['users', 'users.all', 'companies.list'].includes(route.name)
 })
 
+const isBookingsGroupActive = computed(() => {
+  return ['booking', 'bookings.type'].includes(route.name)
+})
+
 const isLocationsGroupActive = computed(() => {
   return ['locations.served', 'locations.india', 'zones'].includes(route.name)
 })
+
+const canAccessBookings = computed(() => auth.hasRole(['super_admin', 'admin', 'agent']))
 
 watchEffect(() => {
   if (isUsersGroupActive.value) {
@@ -73,6 +80,12 @@ watchEffect(() => {
 watchEffect(() => {
   if (isLocationsGroupActive.value) {
     showLocationsMenu.value = true
+  }
+})
+
+watchEffect(() => {
+  if (isBookingsGroupActive.value) {
+    showBookingsMenu.value = true
   }
 })
 
@@ -87,6 +100,7 @@ onMounted(() => {
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
   fetchAppSettings()
+  fetchBookingTypes()
 })
 
 onBeforeUnmount(() => {
@@ -126,6 +140,15 @@ const fetchAppSettings = async () => {
     }
   } catch {
     appSettings.value = null
+  }
+}
+
+const fetchBookingTypes = async () => {
+  try {
+    const { data } = await api.get('/booking-types')
+    bookingTypes.value = (data.data || []).filter((bt) => bt.status ?? bt.is_active ?? 1)
+  } catch {
+    bookingTypes.value = []
   }
 }
 
@@ -216,6 +239,36 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
               >
                 <i class="pi pi-building"></i>
                 <span>Registered Companies</span>
+              </button>
+            </div>
+          </div>
+          <div v-if="canAccessBookings" class="nav-group">
+            <div
+              class="nav-item nav-parent"
+              :class="isBookingsGroupActive ? 'is-active' : ''"
+              @click="showBookingsMenu = !showBookingsMenu"
+              title="Bookings"
+            >
+              <div class="nav-parent-label">
+                <i class="pi pi-calendar-plus"></i>
+                <span>Bookings</span>
+              </div>
+              <i :class="['pi', showBookingsMenu ? 'pi-chevron-up' : 'pi-chevron-down']"></i>
+            </div>
+            <div v-if="showBookingsMenu && !navCollapsed" class="nav-submenu">
+              <button class="nav-subitem" @click="router.push({ name: 'booking' })" title="Create New Booking">
+                <i class="pi pi-plus"></i>
+                <span>Create New</span>
+              </button>
+              <button
+                v-for="bt in bookingTypes"
+                :key="bt.id"
+                class="nav-subitem"
+                @click="router.push({ name: 'bookings.type', params: { typeId: bt.id } })"
+                :title="bt.title"
+              >
+                <i class="pi pi-list"></i>
+                <span>{{ bt.title }}</span>
               </button>
             </div>
           </div>
