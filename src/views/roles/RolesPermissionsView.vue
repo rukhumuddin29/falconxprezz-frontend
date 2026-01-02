@@ -13,7 +13,9 @@
       <template #content>
         <div class="tab-pills">
           <button :class="['tab', activeTab === 'roles' ? 'is-active' : '']" @click="activeTab = 'roles'">Roles</button>
-          <button :class="['tab', activeTab === 'permissions' ? 'is-active' : '']" @click="activeTab = 'permissions'">Permissions</button>
+          <button :class="['tab', activeTab === 'permissions' ? 'is-active' : '']" @click="activeTab = 'permissions'">
+            Permissions
+          </button>
         </div>
 
         <div v-if="activeTab === 'roles'">
@@ -53,7 +55,7 @@
                   <td class="dark-text">{{ (page - 1) * perPage + idx + 1 }}</td>
                   <td class="dark-text">{{ role.name }}</td>
                   <td class="muted">{{ role.slug }}</td>
-                  <td>{{ role.description || '—' }}</td>
+                  <td>{{ role.description || '--' }}</td>
                   <td>
                     <div class="perm-chips">
                       <span v-for="perm in role.permissions" :key="perm.id" class="chip">{{ perm.name }}</span>
@@ -107,20 +109,29 @@
                   <th>Name</th>
                   <th>Slug</th>
                   <th>Description</th>
+                  <th width="120">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="loading">
-                  <td colspan="4" class="muted">Loading permissions...</td>
+                  <td colspan="5" class="muted">Loading permissions...</td>
                 </tr>
                 <tr v-else-if="filteredPermissions.length === 0">
-                  <td colspan="4" class="muted">No permissions found.</td>
+                  <td colspan="5" class="muted">No permissions found.</td>
                 </tr>
                 <tr v-for="(perm, idx) in pagedPermissions" :key="perm.id">
                   <td class="dark-text">{{ (permPage - 1) * permPerPage + idx + 1 }}</td>
                   <td class="dark-text">{{ perm.name }}</td>
                   <td class="muted">{{ perm.slug }}</td>
-                  <td>{{ perm.description || '—' }}</td>
+                  <td>{{ perm.description || '--' }}</td>
+                  <td class="actions">
+                    <button class="pill-btn ghost sm" title="Edit" @click="openPermissionModal(perm)">
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button class="pill-btn danger sm" title="Delete" @click="removePermission(perm.id)">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -187,7 +198,7 @@
   <div v-if="showPermissionModal" class="modal-backdrop" @click.self="closePermissionModal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Add Permission</h3>
+        <h3>{{ permissionForm.id ? 'Edit Permission' : 'Add Permission' }}</h3>
         <button class="ghost-btn" @click="closePermissionModal">
           <i class="pi pi-times"></i>
         </button>
@@ -248,6 +259,7 @@ const form = ref({
 })
 
 const permissionForm = ref({
+  id: null,
   name: '',
   slug: '',
   description: '',
@@ -355,8 +367,17 @@ const removeRole = async (id) => {
   }
 }
 
-const openPermissionModal = () => {
-  permissionForm.value = { name: '', slug: '', description: '' }
+const openPermissionModal = (permission = null) => {
+  if (permission) {
+    permissionForm.value = {
+      id: permission.id,
+      name: permission.name,
+      slug: permission.slug,
+      description: permission.description || '',
+    }
+  } else {
+    permissionForm.value = { id: null, name: '', slug: '', description: '' }
+  }
   showPermissionModal.value = true
 }
 
@@ -371,12 +392,31 @@ const savePermission = async () => {
   }
   savingPermission.value = true
   try {
-    const { data } = await api.post('/roles-permissions/permissions', permissionForm.value)
-    permissions.value.push(data.data)
-    toast.add({ severity: 'success', summary: 'Saved', detail: 'Permission added', life: 2000 })
+    if (permissionForm.value.id) {
+      await api.patch(`/roles-permissions/permissions/${permissionForm.value.id}`, permissionForm.value)
+      toast.add({ severity: 'success', summary: 'Updated', detail: 'Permission updated', life: 2000 })
+    } else {
+      await api.post('/roles-permissions/permissions', permissionForm.value)
+      toast.add({ severity: 'success', summary: 'Saved', detail: 'Permission added', life: 2000 })
+    }
+    await loadData()
     closePermissionModal()
   } catch (error) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Unable to add permission', life: 2500 })
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Unable to save permission', life: 2500 })
+  } finally {
+    savingPermission.value = false
+  }
+}
+
+const removePermission = async (id) => {
+  if (!confirm('Delete this permission?')) return
+  savingPermission.value = true
+  try {
+    await api.delete(`/roles-permissions/permissions/${id}`)
+    toast.add({ severity: 'success', summary: 'Deleted', detail: 'Permission removed', life: 2000 })
+    await loadData()
+  } catch (error) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Unable to delete permission', life: 2500 })
   } finally {
     savingPermission.value = false
   }
@@ -446,7 +486,7 @@ onMounted(loadData)
   background: linear-gradient(135deg, #f9fbff 0%, #ffffff 100%);
 }
 
-tbody{
+tbody {
   color: #7f889a;
 }
 

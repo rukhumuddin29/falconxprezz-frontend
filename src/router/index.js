@@ -128,19 +128,19 @@ const router = createRouter({
       path: '/roles',
       name: 'roles.permissions',
       component: RolesPermissionsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_roles', 'manage_permissions'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage-roles', 'manage-permissions'] },
     },
     {
       path: '/shipment-settings',
       name: 'shipment.settings',
       component: ShipmentSettingsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_shipment_settings'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage-shipment-settings'] },
     },
     {
       path: '/app-settings',
       name: 'app.settings',
       component: AppSettingsView,
-      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage_app_settings'] },
+      meta: { requiresAuth: true, roles: ['admin', 'super_admin'], permissions: ['manage-app-settings'] },
     },
     {
       path: '/booking',

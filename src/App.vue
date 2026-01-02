@@ -22,7 +22,7 @@ const menuItems = [
   { label: 'Indian Locations', icon: 'pi pi-map', route: { name: 'locations.india' }, roles: ['super_admin', 'admin'], permissions: ['manage-indian-locations'] },
   { label: 'Zones', icon: 'pi pi-flag', route: { name: 'zones' }, roles: ['super_admin', 'admin'], permissions: ['manage-zones'] },
   { label: 'Shipment Settings', icon: 'pi pi-cog', route: { name: 'shipment.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage_shipment_settings'] },
-  { label: 'Roles & Permissions', icon: 'pi pi-key', route: { name: 'roles.permissions' }, roles: ['super_admin', 'admin'], permissions: ['manage_roles', 'manage_permissions'] },
+  { label: 'Roles & Permissions', icon: 'pi pi-key', route: { name: 'roles.permissions' }, roles: ['super_admin', 'admin'], permissions: ['manage-roles', 'manage-permissions'] },
   { label: 'App Settings', icon: 'pi pi-sliders-h', route: { name: 'app.settings' }, roles: ['super_admin', 'admin'], permissions: ['manage-app-settings'] },
 ]
 
@@ -162,7 +162,7 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
             <i class="pi pi-compass"></i>
             <span>Dashboard</span>
           </button>
-          <div v-if="auth.hasRole(['admin', 'super_admin']) && auth.hasPermission(['manage_users', 'manage_roles', 'manage_permissions'])" class="nav-group">
+          <div v-if="auth.hasRole(['admin', 'super_admin']) && auth.hasPermission(['manage-users', 'manage-roles', 'manage-permissions'])" class="nav-group">
             <div
               class="nav-item nav-parent"
               :class="isUsersGroupActive ? 'is-active' : ''"
@@ -371,7 +371,7 @@ const brandSubtitle = computed(() => appSettings.value?.short_description || 'Co
 }
 
 .brand-mark img {
-  width: auto;
+  width: 150px;
 }
 
 @media (max-width: 960px) {
