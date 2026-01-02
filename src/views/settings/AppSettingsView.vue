@@ -153,7 +153,10 @@ const backendOrigin =
 const resolveUrl = (value) => {
   if (!value || typeof value !== 'string') return ''
   if (value.startsWith('http')) return value
-  const cleaned = value.replace(/^\/+/, '')
+  let cleaned = value.replace(/^\/+/, '')
+  if (!cleaned.startsWith('storage/')) {
+    cleaned = `storage/${cleaned}`
+  }
   return `${backendOrigin.replace(/\/+$/, '')}/${cleaned}`
 }
 
